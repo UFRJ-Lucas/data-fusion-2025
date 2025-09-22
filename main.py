@@ -36,9 +36,14 @@ def alinhar_gaze_para_mouse(df_gaze, screen_width, screen_height):
     y_min, y_max = df_gaze['y'].min(), df_gaze['y'].max()
     
     df_gaze_alinhado = df_gaze.copy()
+    # Normaliza X e Y
     df_gaze_alinhado['x'] = (df_gaze['x'] - x_min) / (x_max - x_min) * screen_width
     df_gaze_alinhado['y'] = (df_gaze['y'] - y_min) / (y_max - y_min) * screen_height
-    df_gaze_alinhado['y'] = screen_height - df_gaze_alinhado['y']  # inverter eixo Y
+    # Inverte Y
+    df_gaze_alinhado['y'] = screen_height - df_gaze_alinhado['y']
+    # Inverte X para coincidir com o sentido do mouse
+    df_gaze_alinhado['x'] = screen_width - df_gaze_alinhado['x']
+    
     return df_gaze_alinhado
 
 def mostrar_qtd_registros(df_mouse, df_gaze):
