@@ -71,7 +71,7 @@ def detect_click(x, y, button):
 # -----------------------------
 # Inicialização
 # -----------------------------
-def init_gaze_screen(scale=0.8, font_size=48):
+def init_gaze_screen(scale=0.8, font_size=48, calibration_radius=500):
     pygame.init()
     pygame.font.init()
     
@@ -85,7 +85,7 @@ def init_gaze_screen(scale=0.8, font_size=48):
     bold_font = pygame.font.Font(None, font_size)
     bold_font.set_bold(True)
     
-    gestures = EyeGestures_v3()
+    gestures = EyeGestures_v3(calibration_radius=calibration_radius)
     video_capture = VideoCapture(0)
     
     return gestures, video_capture, screen, screen_width, screen_height, bold_font
