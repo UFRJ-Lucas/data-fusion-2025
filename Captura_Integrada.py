@@ -15,6 +15,7 @@ from eyeGestures import EyeGestures_v3
 # -----------------------------
 DOUBLE_CLICK_MAX_INTERVAL = 0.3
 POINT_RADIUS = 20
+GAZE_POINT_RADIUS = 30
 
 # Offsets dos pontos
 x_offset_inicio, y_offset_inicio = -150, 150
@@ -106,85 +107,6 @@ def setup_calibration(gestures, max_points=25, context="my_context"):
     
     return n_points
 
-
-# -----------------------------
-# Capturar trajetórias
-# -----------------------------
-def capturar_trajetoria_v2(gestures, video_capture, WIDTH, HEIGHT):
-    """
-    Captura simultaneamente eventos do mouse e posições do eye tracker.
-    Retorna dois dataframes: df_mouse e df_gaze.
-    """
-    global capturando
-
-    # Pontos
-    ponto_inicio = (WIDTH // 4 + x_offset_inicio, HEIGHT // 2 + y_offset_inicio)
-    ponto_intermediario = (WIDTH // 2 + x_offset_intermediario, HEIGHT // 2 + y_offset_intermediario)
-    ponto_fim = (3 * WIDTH // 4 + x_offset_fim, HEIGHT // 2 + y_offset_fim)
-
-    # DataFrames
-    eventos_mouse = []
-    eventos_gaze = []
-
-    rodando = True
-    while rodando:
-        #screen.fill(WHITE)
-        pygame.draw.circle(screen, GREEN, ponto_inicio, POINT_RADIUS)
-        pygame.draw.circle(screen, BLUE, ponto_intermediario, POINT_RADIUS)
-        pygame.draw.circle(screen, RED, ponto_fim, POINT_RADIUS)
-        pygame.display.flip()
-
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                rodando = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    rodando = False
-            elif event.type == pygame.MOUSEBUTTONUP:
-                x, y = event.pos
-                button = event.button
-                click_type, click_count = detect_click(x, y, button)
-
-                if not capturando and click_type == 'double_click' and hypot(x - ponto_inicio[0], y - ponto_inicio[1]) <= POINT_RADIUS:
-                    capturando = True
-                    print("Captura iniciada")
-                elif capturando and click_type == 'double_click' and hypot(x - ponto_fim[0], y - ponto_fim[1]) <= POINT_RADIUS:
-                    capturando = False
-                    rodando = False
-                    print("Captura encerrada")
-
-            elif event.type == pygame.MOUSEMOTION and capturando:
-                x, y = event.pos
-                eventos_mouse.append({
-                    'timestamp': time.time(),
-                    'x': x,
-                    'y': y,
-                    'event_type': 'move',
-                    'button': 'mouse',
-                    'click_count': 0
-                })
-
-                # Captura do frame do eye tracker
-                ret, frame = video_capture.read()
-                if ret:
-                    gaze_event, _ = gestures.step(frame, False, WIDTH, HEIGHT, "my_context")
-                    if capturando and gaze_event is not None:
-                        pygame.draw.circle(screen, GREEN, gaze_event.point, 50)
-                        eventos_gaze.append({
-                            'timestamp': time.time(),
-                            'x': gaze_event.point[0],
-                            'y': gaze_event.point[1],
-                            'fixation': gaze_event.fixation,
-                            'saccades': gaze_event.saccades
-                        })
-    pygame.quit()
-    df_mouse = pd.DataFrame(eventos_mouse)
-    df_gaze = pd.DataFrame(eventos_gaze)
-    print(f'Registros capturados do mouse: {len(df_mouse)}')
-    print(f'Registros capturados do gaze: {len(df_gaze)}')
-    return df_mouse, df_gaze
-
 # -----------------------------
 # Loop principal de captura
 # -----------------------------
@@ -193,6 +115,16 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     running = True
     iterator = 0
     prev_x, prev_y = 0, 0
+    capturing_input = False
+
+    # Pontos de clique
+    ponto_inicio = (screen_width // 4 + x_offset_inicio, screen_height // 2 + y_offset_inicio)
+    ponto_intermediario = (screen_width // 2 + x_offset_intermediario, screen_height // 2 + y_offset_intermediario)
+    ponto_fim = (3 * screen_width // 4 + x_offset_fim, screen_height // 2 + y_offset_fim)
+
+    # DataFrames
+    eventos_mouse = []
+    eventos_gaze = []
 
     while running:
         for event in pygame.event.get():
@@ -208,7 +140,7 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             break
         
         ret, frame = video_capture.read()
-        if not ret: # TODO: Verificar
+        if not ret: # TODO: Verificar se funciona
             frame.release()
             running = False  # Encerrar loop imediatamente se falha na captura
             break
@@ -244,33 +176,58 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             screen.blit(text_surface, text_square)
         
         # Após calibração
-        if not calibrate:
-            df_mouse, df_eye = capturar_trajetoria_v2(gestures, video_capture, screen_width, screen_height)
+        elif not calibrate:
+            if event.type == pygame.MOUSEBUTTONUP:
+                x, y = event.pos
+                button = event.button
+                click_type, click_count = detect_click(x, y, button)
 
-            # Salvar DataFrames
-            df_mouse.to_pickle("df_mouse_original.pkl")
-            df_eye.to_pickle("df_gaze_original.pkl")
+                if not capturing_input and click_type == 'double_click' and hypot(x - ponto_inicio[0], y - ponto_inicio[1]) <= POINT_RADIUS:
+                    capturing_input = True
+                    print("Captura iniciada")
+                elif capturing_input and click_type == 'double_click' and hypot(x - ponto_fim[0], y - ponto_fim[1]) <= POINT_RADIUS:
+                    capturing_input = False
+                    running = False
+                    print("Captura encerrada")
+            elif event.type == pygame.MOUSEMOTION and capturing_input:
+                x, y = event.pos
+                eventos_mouse.append({
+                    'timestamp': time.time(),
+                    'x': x,
+                    'y': y,
+                    'event_type': 'move',
+                    'button': 'mouse',
+                    'click_count': 0
+                })
+
+            pygame.draw.circle(screen, GREEN, ponto_inicio, POINT_RADIUS)
+            pygame.draw.circle(screen, BLUE, ponto_intermediario, POINT_RADIUS)
+            pygame.draw.circle(screen, RED, ponto_fim, POINT_RADIUS)
+
+            if capturing_input and gaze_event is not None:
+                eventos_gaze.append({
+                    'timestamp': time.time(),
+                    'x': gaze_event.point[0],
+                    'y': gaze_event.point[1],
+                    'fixation': gaze_event.fixation,
+                    'saccades': gaze_event.saccades
+                })
 
         surface = pygame.display.get_surface()
-        if surface:
-        # Visualização do algoritmo
-            if gaze_event is not None:
-                algo = gestures.whichAlgorithm(context=context)
-                color_map = {"Ridge": RED, "LassoCV": BLUE}
-                color = color_map.get(algo, GREEN)
-                pygame.draw.circle(surface, color, gaze_event.point, 50)
-                if gaze_event.saccades:
-                    pygame.draw.circle(surface, GREEN, gaze_event.point, 50)
-                
-                font = pygame.font.SysFont('Comic Sans MS', 30)
-                text_surface = font.render(algo, False, BLANK)
-                surface.blit(text_surface, gaze_event.point)
+        if surface and gaze_event is not None:
+            pygame.draw.circle(surface, RED, gaze_event.point, GAZE_POINT_RADIUS)
             
-            pygame.display.flip()
-            clock.tick(60)
-        else:
-            running = False
-            break
+        pygame.display.flip()
+
+        clock.tick(60)
+
+    df_mouse = pd.DataFrame(eventos_mouse)
+    df_gaze = pd.DataFrame(eventos_gaze)
+    print(f'Registros capturados do mouse: {len(df_mouse)}')
+    print(f'Registros capturados do gaze: {len(df_gaze)}')
+
+    df_mouse.to_pickle("df_mouse_original.pkl")
+    df_gaze.to_pickle("df_gaze_original.pkl")
 
 # -----------------------------
 # Finalização
