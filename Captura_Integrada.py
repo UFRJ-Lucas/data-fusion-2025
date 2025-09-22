@@ -26,6 +26,13 @@ eventos = []
 ultimo_click = {}
 capturando = False
 
+# Constantes de cores
+RED = (255, 0, 100)
+BLUE = (100, 0, 255)
+GREEN = (0, 255, 0)
+BLANK = (0,0,0)
+WHITE = (255, 255, 255)
+
 # -----------------------------
 # Registrar evento do mouse
 # -----------------------------
@@ -85,13 +92,13 @@ def init_gaze_screen(scale=0.8, font_size=48):
 # -----------------------------
 # Configuração da calibração
 # -----------------------------
-def setup_calibration(gestures, n_points=25, context="my_context"):
+def setup_calibration(gestures, max_points=25, context="my_context"):
     x = np.arange(0, 1.1, 0.2)
     y = np.arange(0, 1.1, 0.2)
     xx, yy = np.meshgrid(x, y)
     
     calibration_map = np.column_stack([xx.ravel(), yy.ravel()])
-    n_points = min(len(calibration_map), n_points)
+    n_points = min(len(calibration_map), max_points)
     np.random.shuffle(calibration_map)
     
     gestures.uploadCalibrationMap(calibration_map, context=context)
@@ -121,10 +128,10 @@ def capturar_trajetoria_v2(gestures, video_capture, WIDTH, HEIGHT):
 
     rodando = True
     while rodando:
-        #screen.fill((255, 255, 255))
-        pygame.draw.circle(screen, (0, 255, 0), ponto_inicio, POINT_RADIUS)
-        pygame.draw.circle(screen, (0, 0, 255), ponto_intermediario, POINT_RADIUS)
-        pygame.draw.circle(screen, (255, 0, 0), ponto_fim, POINT_RADIUS)
+        #screen.fill(WHITE)
+        pygame.draw.circle(screen, GREEN, ponto_inicio, POINT_RADIUS)
+        pygame.draw.circle(screen, BLUE, ponto_intermediario, POINT_RADIUS)
+        pygame.draw.circle(screen, RED, ponto_fim, POINT_RADIUS)
         pygame.display.flip()
 
 
@@ -163,6 +170,7 @@ def capturar_trajetoria_v2(gestures, video_capture, WIDTH, HEIGHT):
                 if ret:
                     gaze_event, _ = gestures.step(frame, False, WIDTH, HEIGHT, "my_context")
                     if capturando and gaze_event is not None:
+                        pygame.draw.circle(screen, GREEN, gaze_event.point, 50)
                         eventos_gaze.append({
                             'timestamp': time.time(),
                             'x': gaze_event.point[0],
@@ -200,9 +208,8 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             break
         
         ret, frame = video_capture.read()
-        if not ret:
+        if not ret: # TODO: Verificar
             frame.release()
-            cam_frame.realease()
             running = False  # Encerrar loop imediatamente se falha na captura
             break
         
@@ -215,24 +222,24 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
         if gaze_event is None and calibration is None:
             continue
         
-        screen.fill((0,0,0))
+        screen.fill(BLANK)
         
         # Mostrar câmera reduzida no canto
-        if gaze_event is not None and hasattr(gaze_event, 'sub_frame'):
-            cam_frame = cv2.resize(gaze_event.sub_frame, (200,150))
-        else:
-            cam_frame = np.zeros((150,200,3), dtype=np.uint8)
-        cam_surf = pygame.surfarray.make_surface(np.rot90(cam_frame))
-        screen.blit(cam_surf, (0,0))
+        screen.blit(
+            pygame.surfarray.make_surface(np.rot90(gaze_event.sub_frame)),
+            (0, 0)
+        )
+        my_font = pygame.font.SysFont('Comic Sans MS', 30)
+        text_surface = my_font.render(f'{gaze_event.fixation}', False, (0, 0, 0))
+        screen.blit(text_surface, (0,0))
         
         # Visualização da calibração
         if calibrate and calibration is not None:
             if calibration.point[0] != prev_x or calibration.point[1] != prev_y:
                 iterator += 1
-                prev_x, prev_y = calibration.point
-            calibration.acceptance_radius = 50
-            pygame.draw.circle(screen, (0,0,255), calibration.point, calibration.acceptance_radius)
-            text_surface = bold_font.render(f"{iterator}/{n_points}", True, (255,255,255))
+                prev_x, prev_y = calibration.point[0], calibration.point[1]
+            pygame.draw.circle(screen, BLUE, calibration.point, calibration.acceptance_radius)
+            text_surface = bold_font.render(f"{iterator}/{n_points}", True, WHITE)
             text_square = text_surface.get_rect(center=calibration.point)
             screen.blit(text_surface, text_square)
         
@@ -249,14 +256,14 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
         # Visualização do algoritmo
             if gaze_event is not None:
                 algo = gestures.whichAlgorithm(context=context)
-                color_map = {"Ridge": (255,0,100), "LassoCV": (100,0,255)}
-                color = color_map.get(algo, (0,255,0))
+                color_map = {"Ridge": RED, "LassoCV": BLUE}
+                color = color_map.get(algo, GREEN)
                 pygame.draw.circle(surface, color, gaze_event.point, 50)
                 if gaze_event.saccades:
-                    pygame.draw.circle(surface, (0,255,0), gaze_event.point, 50)
+                    pygame.draw.circle(surface, GREEN, gaze_event.point, 50)
                 
                 font = pygame.font.SysFont('Comic Sans MS', 30)
-                text_surface = font.render(algo, False, (0,0,0))
+                text_surface = font.render(algo, False, BLANK)
                 surface.blit(text_surface, gaze_event.point)
             
             pygame.display.flip()
@@ -278,6 +285,6 @@ def finalize_gaze(video_capture):
 # -----------------------------
 if __name__ == "__main__":
     gestures, video_capture, screen, w, h, bold_font = init_gaze_screen()
-    n_points = setup_calibration(gestures, n_points=25)
+    n_points = setup_calibration(gestures, max_points=25)
     gaze_main_loop(gestures, video_capture, screen, w, h, bold_font, n_points=n_points)
     finalize_gaze(video_capture)
