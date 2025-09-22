@@ -71,7 +71,7 @@ def detect_click(x, y, button):
 # -----------------------------
 # Inicialização
 # -----------------------------
-def init_gaze_screen(scale=0.8, font_size=48, calibration_radius=500):
+def init_gaze_screen(scale=0.8, font_size=48, calibration_radius=300):
     pygame.init()
     pygame.font.init()
     
