@@ -96,6 +96,85 @@ def capturar_trajetoria():
     df = pd.DataFrame(eventos)
     return df, WIDTH, HEIGHT
 
+def capturar_trajetoria_v2(gestures, video_capture):
+    """
+    Captura simultaneamente eventos do mouse e posições do eye tracker.
+    Retorna dois dataframes: df_mouse e df_gaze.
+    """
+    global capturando
+    pygame.init()
+    info = pygame.display.Info()
+    WIDTH, HEIGHT = info.current_w // 2, info.current_h // 2
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Simulação de Trajetória com Gaze")
+
+    # Pontos
+    ponto_inicio = (WIDTH // 4 + x_offset_inicio, HEIGHT // 2 + y_offset_inicio)
+    ponto_intermediario = (WIDTH // 2 + x_offset_intermediario, HEIGHT // 2 + y_offset_intermediario)
+    ponto_fim = (3 * WIDTH // 4 + x_offset_fim, HEIGHT // 2 + y_offset_fim)
+
+    # DataFrames
+    eventos_mouse = []
+    eventos_gaze = []
+
+    rodando = True
+    while rodando:
+        screen.fill((255, 255, 255))
+        pygame.draw.circle(screen, (0, 255, 0), ponto_inicio, POINT_RADIUS)
+        pygame.draw.circle(screen, (0, 0, 255), ponto_intermediario, POINT_RADIUS)
+        pygame.draw.circle(screen, (255, 0, 0), ponto_fim, POINT_RADIUS)
+        pygame.display.flip()
+
+        # Captura do frame do eye tracker
+        ret, frame = video_capture.read()
+        if ret:
+            gaze_event, _ = gestures.step(frame, calibrate=False, screen_width=WIDTH, screen_height=HEIGHT, context="my_context")
+            if capturando and gaze_event is not None:
+                eventos_gaze.append({
+                    'timestamp': time.time(),
+                    'x': gaze_event.point[0],
+                    'y': gaze_event.point[1],
+                    'fixation': gaze_event.fixation,
+                    'saccades': gaze_event.saccades
+                })
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                rodando = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    rodando = False
+            elif event.type == pygame.MOUSEBUTTONUP:
+                x, y = event.pos
+                button = event.button
+                click_type, click_count = detect_click(x, y, button)
+
+                if not capturando and click_type == 'double_click' and hypot(x - ponto_inicio[0], y - ponto_inicio[1]) <= POINT_RADIUS:
+                    capturando = True
+                    print("Captura iniciada")
+                elif capturando and click_type == 'double_click' and hypot(x - ponto_fim[0], y - ponto_fim[1]) <= POINT_RADIUS:
+                    capturando = False
+                    rodando = False
+                    print("Captura encerrada")
+
+            elif event.type == pygame.MOUSEMOTION and capturando:
+                x, y = event.pos
+                eventos_mouse.append({
+                    'timestamp': time.time(),
+                    'x': x,
+                    'y': y,
+                    'event_type': 'move',
+                    'button': 'mouse',
+                    'click_count': 0
+                })
+
+    pygame.quit()
+    df_mouse = pd.DataFrame(eventos_mouse)
+    df_gaze = pd.DataFrame(eventos_gaze)
+    return df_mouse, df_gaze, WIDTH, HEIGHT
+
+
+
 def gerar_ruido_aleatorio(df_mov, sigma_min=2, sigma_max=15):
     """
     Adiciona ruído aleatório nas coordenadas x e y, com intensidade variável

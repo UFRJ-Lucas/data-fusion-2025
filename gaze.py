@@ -11,8 +11,8 @@ pygame.font.init()
 
 # Get the display dimensions
 screen_info = pygame.display.Info()
-screen_width = screen_info.current_w
-screen_height = screen_info.current_h
+screen_width = 0.8*screen_info.current_w
+screen_height = 0.8*screen_info.current_h
 
 # Set up the screen
 screen = pygame.display.set_mode((screen_width, screen_height))
@@ -59,9 +59,11 @@ while running:
     # Event handling
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            running = False         
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_q and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                running = False
+            if event.key == pygame.K_ESCAPE:
                 running = False
 
     try:
