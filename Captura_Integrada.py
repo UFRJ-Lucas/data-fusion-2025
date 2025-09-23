@@ -128,7 +128,7 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     capturing_input = False
 
     # Pontos de clique
-    point_positions = [(0.3, 0.5),(0.5, 0.35),(0.75, 0.55)] # primeiro ponto é inicio, ultimo é fim
+    point_positions = [(0.3, 0.5),(0.5, 0.25),(0.75, 0.55),(0,1),(0,0),(1,1),(1,0),(0.5,0.5)] # primeiro ponto é inicio, ultimo é fim
     click_points = []
     for pos in point_positions:
         click_points.append(make_point(pos[0], pos[1], screen_width, screen_height))
@@ -261,7 +261,7 @@ def finalize_gaze(video_capture):
 # Teste do módulo
 # -----------------------------
 if __name__ == "__main__":
-    gestures, video_capture, screen, w, h, bold_font = init_gaze_screen()
+    gestures, video_capture, screen, w, h, bold_font = init_gaze_screen() # TODO: ajustar raio de calibração
     n_points = setup_calibration(gestures, max_points=25)
     gaze_main_loop(gestures, video_capture, screen, w, h, bold_font, n_points=n_points)
     finalize_gaze(video_capture)
