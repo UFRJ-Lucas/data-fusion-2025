@@ -17,11 +17,6 @@ DOUBLE_CLICK_MAX_INTERVAL = 0.3
 POINT_RADIUS = 20
 GAZE_POINT_RADIUS = 30
 
-# Offsets dos pontos
-x_offset_inicio, y_offset_inicio = -150, 150
-x_offset_intermediario, y_offset_intermediario = 0, -120
-x_offset_fim, y_offset_fim = 0, 50
-
 # Variáveis globais
 eventos = []
 ultimo_click = {}
@@ -37,7 +32,7 @@ WHITE = (255, 255, 255)
 # -----------------------------
 # Registrar evento do mouse
 # -----------------------------
-def registrar_evento(x, y, event_type, button, click_count):
+def register_event(x, y, event_type, button, click_count):
     eventos.append({
         'timestamp': time.time(),
         'x': x,
@@ -60,11 +55,11 @@ def detect_click(x, y, button):
         if dt <= DOUBLE_CLICK_MAX_INTERVAL and dist <= POINT_RADIUS:
             # Duplo clique
             ultimo_click[key] = {'timestamp': now, 'x': x, 'y': y}
-            registrar_evento(x, y, 'double_click', button, 2)
+            register_event(x, y, 'double_click', button, 2)
             return 'double_click', 2
     # Clique simples
     ultimo_click[key] = {'timestamp': now, 'x': x, 'y': y}
-    registrar_evento(x, y, 'click', button, 1)
+    register_event(x, y, 'click', button, 1)
     return 'click', 1
 
 
@@ -108,6 +103,21 @@ def setup_calibration(gestures, max_points=25, context="my_context"):
     return n_points
 
 # -----------------------------
+# Criação de pontos de clique
+# -----------------------------
+def make_point(x_percent, y_percent, screen_width, screen_height):
+    """
+    Cria um ponto na tela baseado em porcentagens da largura e altura da tela.
+        x_percent: float entre 0 e 1 representando a posição horizontal
+        y_percent: float entre 0 e 1 representando a posição vertical
+    """
+    x_pos = x_percent * screen_width
+    y_pos = y_percent * screen_height
+
+    return (x_pos, y_pos)
+
+
+# -----------------------------
 # Loop principal de captura
 # -----------------------------
 def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height, bold_font, n_points=25, context="my_context"):
@@ -118,9 +128,17 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     capturing_input = False
 
     # Pontos de clique
-    ponto_inicio = (screen_width // 4 + x_offset_inicio, screen_height // 2 + y_offset_inicio)
-    ponto_intermediario = (screen_width // 2 + x_offset_intermediario, screen_height // 2 + y_offset_intermediario)
-    ponto_fim = (3 * screen_width // 4 + x_offset_fim, screen_height // 2 + y_offset_fim)
+    point_positions = [(0.3, 0.5),(0.5, 0.35),(0.75, 0.55)] # primeiro ponto é inicio, ultimo é fim
+    click_points = []
+    for pos in point_positions:
+        click_points.append(make_point(pos[0], pos[1], screen_width, screen_height))
+    if len(click_points) < 2:
+        pygame.quit()
+        raise ValueError("Defina pelo menos dois pontos de clique.")
+    
+    # Pontos de inicio e fim
+    start_point = click_points[0]
+    end_point = click_points[-1]
 
     # DataFrames
     eventos_mouse = []
@@ -182,10 +200,10 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                 button = event.button
                 click_type, click_count = detect_click(x, y, button)
 
-                if not capturing_input and click_type == 'double_click' and hypot(x - ponto_inicio[0], y - ponto_inicio[1]) <= POINT_RADIUS:
+                if not capturing_input and click_type == 'double_click' and hypot(x - start_point[0], y - start_point[1]) <= POINT_RADIUS:
                     capturing_input = True
                     print("Captura iniciada")
-                elif capturing_input and click_type == 'double_click' and hypot(x - ponto_fim[0], y - ponto_fim[1]) <= POINT_RADIUS:
+                elif capturing_input and click_type == 'double_click' and hypot(x - end_point[0], y - end_point[1]) <= POINT_RADIUS:
                     capturing_input = False
                     running = False
                     print("Captura encerrada")
@@ -200,9 +218,11 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                     'click_count': 0
                 })
 
-            pygame.draw.circle(screen, GREEN, ponto_inicio, POINT_RADIUS)
-            pygame.draw.circle(screen, BLUE, ponto_intermediario, POINT_RADIUS)
-            pygame.draw.circle(screen, RED, ponto_fim, POINT_RADIUS)
+            
+            pygame.draw.circle(screen, GREEN, start_point, POINT_RADIUS) # Desenha ponto de início
+            pygame.draw.circle(screen, RED, end_point, POINT_RADIUS) # Desenha ponto de fim
+            for point in click_points[1:-1]:
+                pygame.draw.circle(screen, BLUE, point, POINT_RADIUS) # Desenha pontos intermediários
 
             if capturing_input and gaze_event is not None:
                 eventos_gaze.append({
