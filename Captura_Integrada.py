@@ -26,7 +26,7 @@ capturando = False
 RED = (255, 0, 100)
 BLUE = (100, 0, 255)
 GREEN = (0, 255, 0)
-BLANK = (0,0,0)
+BLANK = (125,125,125)
 WHITE = (255, 255, 255)
 
 # -----------------------------
@@ -207,26 +207,26 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                     capturing_input = False
                     running = False
                     print("Captura encerrada")
-            elif event.type == pygame.MOUSEMOTION and capturing_input:
-                x, y = event.pos
-                eventos_mouse.append({
-                    'timestamp': time.time(),
-                    'x': x,
-                    'y': y,
-                    'event_type': 'move',
-                    'button': 'mouse',
-                    'click_count': 0
-                })
-
             
             pygame.draw.circle(screen, GREEN, start_point, POINT_RADIUS) # Desenha ponto de início
             pygame.draw.circle(screen, RED, end_point, POINT_RADIUS) # Desenha ponto de fim
             for point in click_points[1:-1]:
                 pygame.draw.circle(screen, BLUE, point, POINT_RADIUS) # Desenha pontos intermediários
 
+            # Captura dados do mouse e visão
             if capturing_input and gaze_event is not None:
+                timestamp = pygame.time.get_ticks()
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                eventos_mouse.append({
+                    'timestamp': timestamp,
+                    'x': mouse_x,
+                    'y': mouse_y,
+                    'event_type': 'move',
+                    'button': 'mouse',
+                    'click_count': 0
+                })
                 eventos_gaze.append({
-                    'timestamp': time.time(),
+                    'timestamp': timestamp,
                     'x': gaze_event.point[0],
                     'y': gaze_event.point[1],
                     'fixation': gaze_event.fixation,
@@ -261,7 +261,7 @@ def finalize_gaze(video_capture):
 # Teste do módulo
 # -----------------------------
 if __name__ == "__main__":
-    gestures, video_capture, screen, w, h, bold_font = init_gaze_screen() # TODO: ajustar raio de calibração
+    gestures, video_capture, screen, w, h, bold_font = init_gaze_screen(scale=1) # TODO: ajustar raio de calibração
     n_points = setup_calibration(gestures, max_points=25)
     gaze_main_loop(gestures, video_capture, screen, w, h, bold_font, n_points=n_points)
     finalize_gaze(video_capture)
