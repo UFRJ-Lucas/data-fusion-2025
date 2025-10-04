@@ -20,8 +20,6 @@ GAZE_POINT_RADIUS = 30
 # Variáveis globais
 eventos = []
 ultimo_click = {}
-# A variável 'capturando' é controlada localmente na função de loop.
-# capturando = False 
 
 # Constantes de cores
 RED = (255, 0, 100)
@@ -30,7 +28,7 @@ GREEN = (0, 255, 0)
 BLANK = (125,125,125)
 WHITE = (255, 255, 255)
 CYAN = (0, 255, 255)
-
+YELLOW = (255, 255, 0)
 
 # -----------------------------
 # Suavizar o mouse com média móvel
@@ -52,6 +50,55 @@ class PositionSmoother:
         avg_x = sum(self.history_x) / len(self.history_x)
         avg_y = sum(self.history_y) / len(self.history_y)
         return np.array([avg_x, avg_y])
+
+# -----------------------------
+# Detectar tremores com base na velocidade
+# -----------------------------
+
+class TremorDetector:
+    """Mede a velocidade do mouse para estimar a intensidade do tremor e retorna um peso dinâmico."""
+    def __init__(self):
+        # Parâmetros de calibração (ajuste estes valores para mudar a sensibilidade)
+        self.min_speed_threshold = 2.0   # Abaixo desta velocidade, o tremor é considerado mínimo.
+        self.max_speed_threshold = 50.0  # Acima desta velocidade, o tremor é considerado máximo.
+        
+        self.min_pull = 0.05  # Força mínima do olhar (permite controle fino do mouse)
+        self.max_pull = 0.20  # Força máxima do olhar (assume o controle durante tremores fortes)
+        
+        # Variáveis para cálculo de velocidade
+        self.prev_pos = None
+        self.smoothed_speed = 0.0
+        self.ema_alpha = 0.1 # Fator de suavização para a velocidade
+
+    def update_and_get_pull_strength(self, current_pos):
+        current_pos = np.array(current_pos)
+        if self.prev_pos is None:
+            self.prev_pos = current_pos
+            return self.min_pull
+
+        # 1. Medir a velocidade instantânea do mouse
+        distance = np.linalg.norm(current_pos - self.prev_pos)
+        # A velocidade é a distância movida desde o último frame.
+        # Não precisamos dividir pelo tempo (dt) se o framerate for estável.
+        raw_speed = distance
+
+        # 2. Suavizar a medição de velocidade para ter um valor estável
+        self.smoothed_speed = (1 - self.ema_alpha) * self.smoothed_speed + self.ema_alpha * raw_speed
+        
+        # Atualiza a posição anterior
+        self.prev_pos = current_pos
+        
+        # 3. Mapear a velocidade suavizada para o peso do olhar (gaze_pull_strength)
+        if self.smoothed_speed <= self.min_speed_threshold:
+            return self.min_pull
+        if self.smoothed_speed >= self.max_speed_threshold:
+            return self.max_pull
+        
+        # Interpolação linear entre os limiares
+        ratio = (self.smoothed_speed - self.min_speed_threshold) / (self.max_speed_threshold - self.min_speed_threshold)
+        dynamic_pull = self.min_pull + ratio * (self.max_pull - self.min_pull)
+        
+        return dynamic_pull
 
 # -----------------------------
 # Registrar evento do mouse
@@ -124,7 +171,7 @@ def make_point(x_percent, y_percent, screen_width, screen_height):
     return (x_pos, y_pos)
 
 # -----------------------------
-# Loop principal de captura (COM LÓGICA DE ATRAÇÃO)
+# Loop principal de captura (COM PESO DINÂMICO E VISUALIZADOR)
 # -----------------------------
 def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height, bold_font, n_points=25, context="my_context"):
     clock = pygame.time.Clock()
@@ -133,20 +180,19 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     prev_x, prev_y = 0, 0
     capturing_input = False
 
-    point_positions = [(0.3, 0.5),(0.5, 0.25),(0.75, 0.55),(0.1,0.9),(0.1,0.1),(0.9,1),(0.5,0.5)]
+    point_positions = [(0.3, 0.5),(0.5, 0.25),(0.75, 0.55),(0.9,0.9),(0.5,0.5)]
     click_points = [make_point(pos[0], pos[1], screen_width, screen_height) for pos in point_positions]
     start_point, end_point = click_points[0], click_points[-1]
 
     eventos_mouse, eventos_gaze, eventos_final = [], [], []
 
-    # Inicialização da nova lógica de atração
+    # Inicialização da lógica
     mouse_smoother = PositionSmoother(window_size=4)
     final_cursor_pos = np.array(pygame.mouse.get_pos(), dtype=float)
+    # NOVO: Inicializa o detector de tremor
+    tremor_detector = TremorDetector()
     
-    # --- PARÂMETROS DE AJUSTE ---
-    # Força com que o olhar "puxa" o mouse. Valores BAIXOS são melhores.
-    gaze_pull_strength = 0.15 
-    # Suavização do movimento final. Previne "saltos".
+    # Parâmetro de suavização do movimento final (pode continuar estático)
     cursor_lerp_factor = 0.6  
 
     while running:
@@ -179,7 +225,6 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             screen.blit(text_surface, text_square)
         
         elif not calibrate:
-            # Lógica de clique e encerramento
             if event.type == pygame.MOUSEBUTTONUP:
                 x, y = event.pos; button = event.button
                 click_type, _ = detect_click(x, y, button)
@@ -188,30 +233,24 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                 elif capturing_input and click_type == 'double_click' and hypot(x-end_point[0], y-end_point[1]) <= POINT_RADIUS:
                     capturing_input = False; running = False; print("Captura encerrada")
             
-            # Desenho da UI
             pygame.draw.circle(screen, GREEN, start_point, POINT_RADIUS)
             pygame.draw.circle(screen, RED, end_point, POINT_RADIUS)
             for point in click_points[1:-1]: pygame.draw.circle(screen, BLUE, point, POINT_RADIUS)
 
-            # Lógica de atração que previne o afastamento
+            # Lógica de atração com peso dinâmico
             if gaze_event is not None and gaze_event.point is not None:
                 mouse_pos = np.array(pygame.mouse.get_pos())
                 gaze_pos = np.array(gaze_event.point)
                 
-                # 1. Âncora: Posição suavizada do mouse. O cursor final não pode se afastar daqui.
+                # Obtém o peso do olhar dinamicamente com base no tremor
+                gaze_pull_strength = tremor_detector.update_and_get_pull_strength(mouse_pos)
+                
                 smoothed_mouse_pos = mouse_smoother.smooth(mouse_pos[0], mouse_pos[1])
-                
-                # 2. Vetor de Atração: A direção que o olhar "puxa".
                 attraction_vector = gaze_pos - smoothed_mouse_pos
-                
-                # 3. Ponto Alvo: O ponto final ideal, que é a âncora mais um pouco na direção do olhar.
                 target_pos = smoothed_mouse_pos + gaze_pull_strength * attraction_vector
-                
-                # 4. Movimento Suave: Interpola linearmente a posição atual do cursor final em direção ao alvo.
-                # Isso cria um movimento fluido e amortecido, como se houvesse um elástico.
                 final_cursor_pos = (1 - cursor_lerp_factor) * final_cursor_pos + cursor_lerp_factor * target_pos
 
-            # Captura de dados
+            
             if capturing_input and gaze_event is not None:
                 timestamp = pygame.time.get_ticks()
                 mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -219,15 +258,23 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                 eventos_gaze.append({'timestamp': timestamp, 'x': gaze_event.point[0], 'y': gaze_event.point[1]})
                 eventos_final.append({'timestamp': timestamp, 'x': final_cursor_pos[0], 'y': final_cursor_pos[1]})
 
-        # Desenho dos cursores
         surface = pygame.display.get_surface()
         if surface and gaze_event is not None and gaze_event.point is not None:
-            # Olhar bruto (vermelho)
             pygame.draw.circle(surface, RED, gaze_event.point, GAZE_POINT_RADIUS)
             if not calibrate:
-                # Cursor final (ciano)
                 pygame.draw.circle(surface, CYAN, (int(final_cursor_pos[0]), int(final_cursor_pos[1])), 15)
-            
+
+        # Visualizador de depuração para o peso dinâmico
+        if not calibrate:
+            # Barra de fundo
+            pygame.draw.rect(screen, (50, 50, 50), [10, screen_height - 40, 200, 30])
+            # Barra de tremor (velocidade)
+            speed_ratio = min(tremor_detector.smoothed_speed / tremor_detector.max_speed_threshold, 1.0)
+            pygame.draw.rect(screen, YELLOW, [10, screen_height - 40, 200 * speed_ratio, 15])
+            # Barra de força do olhar (pull strength)
+            pull_ratio = (gaze_pull_strength - tremor_detector.min_pull) / (tremor_detector.max_pull - tremor_detector.min_pull)
+            pygame.draw.rect(screen, (0, 150, 255), [10, screen_height - 25, 200 * pull_ratio, 15])
+
         pygame.display.flip()
         clock.tick(60)
 
