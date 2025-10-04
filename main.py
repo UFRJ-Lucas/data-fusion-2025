@@ -67,7 +67,7 @@ def plot_trajetoria(df_gaze, df_mouse, figsize=(12, 8), gaze_color='red', mouse_
     if not df_mouse.empty:
         plt.plot(df_mouse['x'], df_mouse['y'], color=mouse_color, marker='x', markersize=3, label='Mouse')
         plt.plot(df_mouse['x_noisy'], df_mouse['y_noisy'], color='orange', marker='.', markersize=2, label='Mouse with Noise')
-        plt.plot(df_mouse['x_filtered'], df_mouse['y_filtered'], color='green', marker='.', markersize=2, label='Mouse Filtered')
+        #plt.plot(df_mouse['x_filtered'], df_mouse['y_filtered'], color='green', marker='.', markersize=2, label='Mouse Filtered')
     
     plt.gca().invert_yaxis()  # Coordenadas de tela: (0,0) topo esquerdo
     plt.xlabel('X')
@@ -105,6 +105,6 @@ def calcular_erros(df_mouse):
 if __name__ == "__main__":
     df_gaze, df_mouse = carregar_dados_trajetoria() # Carrega os dados
     df_mouse = gerar_ruido_aleatorio(df_mouse, sigma_min=2, sigma_max=30)  # Adiciona ruído ao mouse
-    df_mouse = aplicar_kalman_filter(df_mouse, df_gaze)  # Aplica o Kalman Filter
+    #df_mouse = aplicar_kalman_filter(df_mouse, df_gaze)  # Aplica o Kalman Filter
     calcular_erros(df_mouse)  # Calcula e exibe os erros
     plot_trajetoria(df_gaze, df_mouse)  # Plota as trajetórias
