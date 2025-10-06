@@ -45,17 +45,22 @@ def analisar_qualidade_caminho(df, nome_trajetoria):
 def plotar_trajetorias(dataframes_dict, titulo_grafico):
     """Plota as trajetórias de múltiplos DataFrames em um único gráfico."""
     fig, ax = plt.subplots(figsize=(16, 10))
-    # MODIFICAÇÃO: Dicionário de cores atualizado para os dois filtros
-    cores = {
-        'Mouse Real': 'green', 
-        'Mouse com Tremor': 'blue', 
-        'Olhar': 'red', 
-        'Estabilizado (Freio)': 'orange', 
-        'Estabilizado (Kalman)': 'cyan'
+    # MODIFICAÇÃO: Dicionário de dados de plot atualizado para os dois filtros
+    fallback_dict = {'color': 'black', 'marker' : '.'}
+    plot_data = {
+        'Mouse Real': {'color': 'green', 'marker' : 'o'}, 
+        'Mouse com Tremor': {'color': 'blue', 'marker' : 'o'}, 
+        'Olhar': {'color': 'red', 'marker' : 'o'}, 
+        'Estabilizado (Freio)': {'color': 'orange', 'marker' : 'D'}, 
+        'Estabilizado (Kalman)': {'color': 'cyan', 'marker' : 'D'}
     }
     for label, df in dataframes_dict.items():
         if df is not None and not df.empty and 'x' in df.columns and 'y' in df.columns:
-            ax.plot(df['x'], df['y'], marker='.', markersize=4, linestyle='-', label=label, color=cores.get(label, 'black'), linewidth=1.5)
+            style = plot_data.get(label, fallback_dict)
+            ax.plot(df['x'], df['y'], 
+                    marker=style.get('marker', fallback_dict['marker']), 
+                    color=style.get('color', fallback_dict['color']), 
+                    markersize=4, linestyle='-', label=label, linewidth=1.5)
     ax.set_title(titulo_grafico); ax.set_xlabel('Coordenada X (pixels)'); ax.set_ylabel('Coordenada Y (pixels)')
     ax.invert_yaxis(); ax.legend(); ax.grid(True); plt.axis('equal'); plt.show()
 
