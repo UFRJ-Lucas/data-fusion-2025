@@ -45,24 +45,41 @@ def analisar_qualidade_caminho(df, nome_trajetoria):
 def plotar_trajetorias(dataframes_dict, titulo_grafico):
     """Plota as trajetórias de múltiplos DataFrames em um único gráfico."""
     fig, ax = plt.subplots(figsize=(16, 10))
-    cores = {'Mouse Real': 'green', 'Mouse com Tremor': 'blue', 'Mouse Suavizado': 'orange', 'Olhar': 'red', 'Estabilizado': 'cyan'}
+    # MODIFICAÇÃO: Dicionário de cores atualizado para os dois filtros
+    cores = {
+        'Mouse Real': 'green', 
+        'Mouse com Tremor': 'blue', 
+        'Olhar': 'red', 
+        'Estabilizado (Freio)': 'orange', 
+        'Estabilizado (Kalman)': 'cyan'
+    }
     for label, df in dataframes_dict.items():
         if df is not None and not df.empty and 'x' in df.columns and 'y' in df.columns:
             ax.plot(df['x'], df['y'], marker='.', markersize=4, linestyle='-', label=label, color=cores.get(label, 'black'), linewidth=1.5)
     ax.set_title(titulo_grafico); ax.set_xlabel('Coordenada X (pixels)'); ax.set_ylabel('Coordenada Y (pixels)')
     ax.invert_yaxis(); ax.legend(); ax.grid(True); plt.axis('equal'); plt.show()
 
-# --- NOVO: Função principal de análise ---
 
-def analisar_conjunto_de_dados(arquivos, titulo_analise):
-    """
-    Função completa que carrega, analisa e plota um conjunto de arquivos de dados.
-    """
-    print("\n" + "#"*60)
+# --- Bloco Principal (Simplificado e Unificado) ---
+
+if __name__ == "__main__":
+    
+    # MODIFICAÇÃO: Define o conjunto único de arquivos da execução unificada
+    arquivos = {
+        "Mouse Real": "df_mouse_real_unificado.pkl",
+        "Mouse com Tremor": "df_mouse_com_tremor_unificado.pkl",
+        "Olhar": "df_gaze_original_unificado.pkl",
+        "Estabilizado (Freio)": "df_final_freio_adaptativo.pkl",
+        "Estabilizado (Kalman)": "df_final_kalman.pkl"
+    }
+
+    titulo_analise = "Comparativo Final: Freio Adaptativo vs. Kalman"
+
+    print("#"*60)
     print(f"# ANÁLISE DO CONJUNTO: {titulo_analise.upper()}")
     print("#"*60 + "\n")
 
-    # Carrega os DataFrames
+    # Carrega todos os DataFrames
     dataframes = {label: carregar_dataframe(path) for label, path in arquivos.items()}
     
     # Exibe relatório de métricas de fidelidade
@@ -71,9 +88,9 @@ def analisar_conjunto_de_dados(arquivos, titulo_analise):
     print("="*50)
     if dataframes.get("Mouse Real") is not None:
         # Compara cada resultado com o "Mouse Real"
-        for label in ["Mouse com Tremor", "Mouse Suavizado", "Estabilizado"]:
-            if dataframes.get(label) is not None:
-                calcular_erros_de_fidelidade(dataframes["Mouse Real"], dataframes[label], label)
+        calcular_erros_de_fidelidade(dataframes.get("Mouse com Tremor"), dataframes["Mouse Real"], "Mouse com Tremor")
+        calcular_erros_de_fidelidade(dataframes.get("Estabilizado (Freio)"), dataframes["Mouse Real"], "Estabilizado (Freio)")
+        calcular_erros_de_fidelidade(dataframes.get("Estabilizado (Kalman)"), dataframes["Mouse Real"], "Estabilizado (Kalman)")
     
     # Exibe relatório de métricas de qualidade de caminho
     print("\n" + "="*50)
@@ -86,42 +103,3 @@ def analisar_conjunto_de_dados(arquivos, titulo_analise):
     
     # Plota o gráfico
     plotar_trajetorias(dataframes, f"Análise de Trajetórias - {titulo_analise}")
-
-
-# --- Bloco Principal ---
-
-if __name__ == "__main__":
-    
-    # --- CONJUNTO 1: Dados do filtro "Freio Adaptativo" (anterior) ---
-    arquivos_freio_adaptativo = {
-        "Mouse Real": "df_mouse_real.pkl",
-        "Mouse com Tremor": "df_mouse_com_tremor.pkl",
-        "Mouse Suavizado": "df_mouse_suavizado.pkl",
-        "Olhar": "df_gaze_original.pkl",
-        "Estabilizado": "df_cursor_final.pkl"
-    }
-
-    # --- CONJUNTO 2: Dados do filtro "Kalman" ---
-    arquivos_kalman = {
-        "Mouse Real": "df_mouse_real_kalman.pkl",
-        "Mouse com Tremor": "df_mouse_com_tremor_kalman.pkl",
-        # "Mouse Suavizado" não existe na versão Kalman, então o omitimos.
-        "Olhar": "df_gaze_original_kalman.pkl",
-        "Estabilizado": "df_cursor_final_kalman.pkl"
-    }
-
-    arquivos = {
-        "Mouse Real": "df_mouse_original.pkl",
-        "Mouse com Tremor": "df_gaze_original.pkl",
-        "Mouse Suavizado": "df_cursor_final.pkl",
-    }
-    
-    # --- ESCOLHA QUAL CONJUNTO ANALISAR AQUI ---
-    # Para analisar o filtro de Kalman, use:
-    analisar_conjunto_de_dados(arquivos_kalman, "Filtro de Kalman")
-    
-    # Para analisar o filtro anterior, descomente a linha abaixo e comente a de cima:
-    #analisar_conjunto_de_dados(arquivos_freio_adaptativo, "Freio Adaptativo")
-
-    # Para analisar o filtro anterior, descomente a linha abaixo e comente a de cima:
-    # analisar_conjunto_de_dados(arquivos, "Original")
