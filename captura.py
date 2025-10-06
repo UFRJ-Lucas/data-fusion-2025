@@ -315,6 +315,19 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     df_gaze = pd.DataFrame(eventos_gaze)
     df_final_freio = pd.DataFrame(eventos_final_freio)
     df_final_kalman = pd.DataFrame(eventos_final_kalman)
+
+    df_pontos = pd.DataFrame([
+        {'x': point[0], 'y': point[1], 'description': 'target'}
+        for i, point in enumerate(click_points)
+    ])
+
+    # Adiciona os pontos dos cantos da tela no df
+    df_pontos = pd.concat([df_pontos, pd.DataFrame([
+        {'x': 0, 'y': 0, 'description': 'corner'},
+        {'x': screen_width, 'y': 0, 'description': 'corner'},
+        {'x': 0, 'y': screen_height, 'description': 'corner'},
+        {'x': screen_width, 'y': screen_height, 'description': 'corner'}
+    ])], ignore_index=True)
     
     print(f'Registros: Real={len(df_mouse_real)}, Tremor={len(df_mouse_com_tremor)}, Gaze={len(df_gaze)}, Final(Freio)={len(df_final_freio)}, Final(Kalman)={len(df_final_kalman)}')
 
@@ -327,6 +340,7 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     df_gaze.to_pickle(OUTPUT_DIR + "df_gaze_original_unificado.pkl")
     df_final_freio.to_pickle(OUTPUT_DIR + "df_final_freio_adaptativo.pkl")
     df_final_kalman.to_pickle(OUTPUT_DIR + "df_final_kalman.pkl")
+    df_pontos.to_pickle(OUTPUT_DIR + "df_pontos.pkl")
 
 if __name__ == "__main__":
     gestures, video_capture, screen, w, h, bold_font = init_gaze_screen(scale=1)

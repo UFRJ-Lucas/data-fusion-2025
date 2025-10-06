@@ -42,7 +42,7 @@ def analisar_qualidade_caminho(df, nome_trajetoria):
         sacudida_total = np.sum(mudancas_de_angulo)
         print(f"  - 'Sacudida' Total (Soma de Ângulos): {sacudida_total:.2f} radianos")
 
-def plotar_trajetorias(dataframes_dict, titulo_grafico):
+def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico):
     """Plota as trajetórias de múltiplos DataFrames em um único gráfico."""
     fig, ax = plt.subplots(figsize=(16, 10))
     # MODIFICAÇÃO: Dicionário de dados de plot atualizado para os dois filtros
@@ -61,6 +61,16 @@ def plotar_trajetorias(dataframes_dict, titulo_grafico):
                     marker=style.get('marker', fallback_dict['marker']), 
                     color=style.get('color', fallback_dict['color']), 
                     markersize=4, linestyle='-', label=label, linewidth=1.5)
+            
+    if df_points is not None and not df_points.empty:
+        clickable_points = df_points[df_points['description'] == 'target']
+        corner_points = df_points[df_points['description'] == 'corner']
+
+        ax.scatter(clickable_points['x'], clickable_points['y'], color='dodgerblue', s=150, marker='o',
+                   edgecolors='black', linewidths=2, label='Alvos', zorder=10)
+        ax.scatter(corner_points['x'], corner_points['y'], color='purple', s=150, marker='X',
+                   edgecolors='black', linewidths=2, label='Cantos', zorder=10)
+
     ax.set_title(titulo_grafico); ax.set_xlabel('Coordenada X (pixels)'); ax.set_ylabel('Coordenada Y (pixels)')
     ax.invert_yaxis(); ax.legend(); ax.grid(True); plt.axis('equal'); plt.show()
 
@@ -88,6 +98,7 @@ if __name__ == "__main__":
 
     # Carrega todos os DataFrames
     dataframes = {label: carregar_dataframe(path) for label, path in arquivos.items()}
+    points_dataframe = carregar_dataframe(OUTPUT_DIR + "df_pontos.pkl")
     
     # Exibe relatório de métricas de fidelidade
     print("\n" + "="*50)
@@ -109,4 +120,4 @@ if __name__ == "__main__":
     print("\n" + "="*50)
     
     # Plota o gráfico
-    plotar_trajetorias(dataframes, f"Análise de Trajetórias - {titulo_analise}")
+    plotar_trajetorias(dataframes, points_dataframe, f"Análise de Trajetórias - {titulo_analise}")
