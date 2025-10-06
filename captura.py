@@ -18,17 +18,21 @@ GAZE_POINT_RADIUS = 30
 eventos = []; 
 ultimo_click = {}
 
-# Constantes de cores
-RED = (255,0,100)
-BLUE = (100,0,255)
-GREEN = (0,255,0)
-BLANK = (125,125,125)
+# Constantes de cores gerais
 WHITE = (255,255,255)
-CYAN = (0,255,255)
-YELLOW = (255,255,0)
+RED = (214,40,40)
+BLUE = (0,48,73)
+GREEN = (129,178,154)
+CYAN = (144,224,239)
+YELLOW = (252,191,73)
 
 # Diretório de saída para salvar os DataFrames
 OUTPUT_DIR = "./resultados/"
+
+# Constantes para o fundo
+BACKGROUND_COLOR = (0,0,0)
+GRID_LINES_COLOR = (50, 50, 50)
+GRID_SPACING = 50
 
 # --- Classes Auxiliares  ---
 class PositionSmoother:
@@ -139,6 +143,24 @@ def finalize_gaze(video_capture):
     pygame.mouse.set_visible(True); pygame.quit()
     if video_capture and video_capture.cap: video_capture.cap.release(); del video_capture
 
+def draw_background(screen, screen_width, screen_height):
+    screen.fill(BACKGROUND_COLOR)
+
+    for x in range(0, screen_width, GRID_SPACING):
+        pygame.draw.line(screen, GRID_LINES_COLOR, (x, 0), (x, screen_height))
+    for y in range(0, screen_height, GRID_SPACING):
+        pygame.draw.line(screen, GRID_LINES_COLOR, (0, y), (screen_width, y))
+
+def draw_click_points(screen, click_points, start_point, end_point, bold_font):
+    pygame.draw.circle(screen, GREEN, start_point, POINT_RADIUS)
+    pygame.draw.circle(screen, RED, end_point, POINT_RADIUS)
+
+    for i, point in enumerate(click_points[1:-1]): 
+        pygame.draw.circle(screen, BLUE, point, POINT_RADIUS)
+        num_text = bold_font.render(str(i+1), True, WHITE)
+        num_rect = num_text.get_rect(center=point)
+        screen.blit(num_text, num_rect)
+
 # --- Loop Principal ---
 def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height, bold_font, n_points=25, context="my_context"):
     clock = pygame.time.Clock()
@@ -212,7 +234,8 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
         except TypeError: gaze_event, calibration = None, None
         if gaze_event is None and calibration is None: continue
         
-        screen.fill(BLANK)
+        draw_background(screen, screen_width, screen_height)
+        
         if gaze_event and gaze_event.sub_frame is not None: screen.blit(pygame.surfarray.make_surface(np.rot90(gaze_event.sub_frame)), (0, 0))
         
         if calibrate and calibration is not None:
@@ -263,11 +286,7 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                 if gaze_event: eventos_gaze.append({'timestamp': timestamp, 'x': gaze_event.point[0], 'y': gaze_event.point[1]})
 
             # Desenho (mostrando apenas o resultado do Kalman para uma tela mais limpa)
-            pygame.draw.circle(screen, GREEN, start_point, POINT_RADIUS)
-            pygame.draw.circle(screen, RED, end_point, POINT_RADIUS)
-
-            for point in click_points[1:-1]: 
-                pygame.draw.circle(screen, BLUE, point, POINT_RADIUS)
+            draw_click_points(screen, click_points, start_point, end_point, bold_font)
 
             status_text = "Gravação iniciada..." if capturing_input else "Clique duplo no alvo VERDE para iniciar a gravação"
 
@@ -277,11 +296,13 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             text_rect = text_surface.get_rect(center=(screen_width//2, 40))
             screen.blit(text_surface, text_rect)
 
-            pygame.draw.circle(screen, BLUE, (int(mouse_pos_com_tremor[0]), int(mouse_pos_com_tremor[1])), 10)
+            pygame.draw.circle(screen, YELLOW, (int(mouse_pos_com_tremor[0]), int(mouse_pos_com_tremor[1])), 10)
             pygame.draw.circle(screen, CYAN, (int(final_cursor_pos_kalman[0]), int(final_cursor_pos_kalman[1])), 15)
 
         if gaze_event is not None and gaze_event.point is not None:
-            pygame.draw.circle(screen, RED, gaze_event.point, GAZE_POINT_RADIUS)
+            pygame.draw.circle(screen, YELLOW, gaze_event.point, GAZE_POINT_RADIUS)
+            pygame.draw.circle(screen, RED, gaze_event.point, GAZE_POINT_RADIUS//2)
+            
             
         pygame.display.flip()
         clock.tick(60)
