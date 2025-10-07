@@ -140,7 +140,7 @@ def make_point(x_percent,y_percent,screen_width,screen_height):
     return (x_pos, y_pos)
 
 def finalize_gaze(video_capture):
-    pygame.mouse.set_visible(True); pygame.quit()
+    pygame.quit()
     if video_capture and video_capture.cap: video_capture.cap.release(); del video_capture
 
 def draw_background(screen, screen_width, screen_height):
@@ -215,9 +215,10 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     # Variáveis de estado
     prev_mouse_pos = np.array(pygame.mouse.get_pos(), dtype=float)
     prev_gaze_pos = None
-    pygame.mouse.set_visible(True)
 
     while running:
+        frame_clicked = False
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE): running = False
             if not (iterator <= n_points) and event.type == pygame.MOUSEBUTTONDOWN:
@@ -227,7 +228,8 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                     capturing_input = True
                     
                 elif capturing_input:
-                    eventos_cliques.append({'x': x, 'y': y, 'description': 'click'})
+                    frame_clicked = True
+                    # eventos_cliques.append({'x': x, 'y': y, 'description': 'click'}) # Clique real
                     if handle_double_click(click_type, x, y, end_point): 
                         capturing_input = False; running = False
                     
@@ -256,10 +258,8 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             mouse_pos_real = np.array(pygame.mouse.get_pos())
             mouse_pos_com_tremor = mouse_pos_real
             if capturing_input:
-                # TODO: Mouse invisivel realmente necessario?
-                pygame.mouse.set_visible(True); mouse_pos_com_tremor = np.array(tremor_simulator.update(mouse_pos_real))
+                mouse_pos_com_tremor = np.array(tremor_simulator.update(mouse_pos_real))
             else:
-                pygame.mouse.set_visible(True)
                 final_cursor_pos_freio = mouse_pos_real # Reseta a posição
                 stabilizer_kalman.start(mouse_pos_real) # Reseta o filtro
 
@@ -294,6 +294,11 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                 eventos_final_freio.append({'timestamp': timestamp, 'x': final_cursor_pos_freio[0], 'y': final_cursor_pos_freio[1]})
                 eventos_final_kalman.append({'timestamp': timestamp, 'x': final_cursor_pos_kalman[0], 'y': final_cursor_pos_kalman[1]})
                 if gaze_event: eventos_gaze.append({'timestamp': timestamp, 'x': gaze_event.point[0], 'y': gaze_event.point[1]})
+                if frame_clicked:
+                     # Clique com Kalman
+                    eventos_cliques.append({'x': final_cursor_pos_kalman[0], 
+                                            'y': final_cursor_pos_kalman[1], 
+                                            'description': 'click'})
 
             # Desenho (mostrando apenas o resultado do Kalman para uma tela mais limpa)
             draw_click_points(screen, click_points, start_point, end_point, bold_font)
@@ -317,7 +322,6 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
         pygame.display.flip()
         clock.tick(60)
         
-    pygame.mouse.set_visible(True)
     
     # --- Salvando todos os resultados ---
     df_mouse_real = pd.DataFrame(eventos_mouse_real)
