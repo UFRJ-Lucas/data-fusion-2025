@@ -30,7 +30,7 @@ YELLOW = (252,191,73)
 OUTPUT_DIR = "./resultados/"
 
 # Constantes para o fundo
-BACKGROUND_COLOR = (0,0,0)
+BACKGROUND_COLOR = (160,160,160)
 GRID_LINES_COLOR = (50, 50, 50)
 GRID_SPACING = 50
 
@@ -161,6 +161,9 @@ def draw_click_points(screen, click_points, start_point, end_point, bold_font):
         num_rect = num_text.get_rect(center=point)
         screen.blit(num_text, num_rect)
 
+def handle_double_click(click_type, x, y, target_point):
+    return (click_type == 'double_click' and hypot(x - target_point[0], y - target_point[1]) <= POINT_RADIUS)
+
 # --- Loop Principal ---
 def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height, bold_font, n_points=25, context="my_context"):
     clock = pygame.time.Clock()
@@ -179,6 +182,7 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     eventos_gaze = []
     eventos_final_freio = [] # Resultado do Filtro "Freio Adaptativo"
     eventos_final_kalman = [] # Resultado do Filtro de Kalman
+    eventos_cliques = []
 
     # --- PARÂMETROS DE AJUSTE PARA AMBOS OS FILTROS ---
     p_chance_tremor = 1.5; 
@@ -216,12 +220,17 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE): running = False
-            if not (iterator <= n_points) and event.type == pygame.MOUSEBUTTONUP:
+            if not (iterator <= n_points) and event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = event.pos; button = event.button; click_type, _ = detect_click(x, y, button)
-                if not capturing_input and click_type == 'double_click' and hypot(x - start_point[0], y - start_point[1]) <= POINT_RADIUS:
-                    capturing_input = True; print("Captura iniciada")
-                elif capturing_input and click_type == 'double_click' and hypot(x - end_point[0], y - end_point[1]) <= POINT_RADIUS:
-                    capturing_input = False; running = False; print("Captura encerrada")
+
+                if not capturing_input and handle_double_click(click_type, x, y, start_point):
+                    capturing_input = True
+                    
+                elif capturing_input:
+                    eventos_cliques.append({'x': x, 'y': y, 'description': 'click'})
+                    if handle_double_click(click_type, x, y, end_point): 
+                        capturing_input = False; running = False
+                    
 
         if not running: break
         
@@ -247,7 +256,8 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
             mouse_pos_real = np.array(pygame.mouse.get_pos())
             mouse_pos_com_tremor = mouse_pos_real
             if capturing_input:
-                pygame.mouse.set_visible(False); mouse_pos_com_tremor = np.array(tremor_simulator.update(mouse_pos_real))
+                # TODO: Mouse invisivel realmente necessario?
+                pygame.mouse.set_visible(True); mouse_pos_com_tremor = np.array(tremor_simulator.update(mouse_pos_real))
             else:
                 pygame.mouse.set_visible(True)
                 final_cursor_pos_freio = mouse_pos_real # Reseta a posição
@@ -328,6 +338,10 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
         {'x': 0, 'y': screen_height, 'description': 'corner'},
         {'x': screen_width, 'y': screen_height, 'description': 'corner'}
     ])], ignore_index=True)
+
+    # Adiciona os cliques ao df
+    df_cliques = pd.DataFrame(eventos_cliques)
+    df_pontos = pd.concat([df_pontos, df_cliques], ignore_index=True)
     
     print(f'Registros: Real={len(df_mouse_real)}, Tremor={len(df_mouse_com_tremor)}, Gaze={len(df_gaze)}, Final(Freio)={len(df_final_freio)}, Final(Kalman)={len(df_final_kalman)}')
 

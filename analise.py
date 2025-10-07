@@ -63,13 +63,16 @@ def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico):
                     markersize=4, linestyle='-', label=label, linewidth=1.5)
             
     if df_points is not None and not df_points.empty:
-        clickable_points = df_points[df_points['description'] == 'target']
+        target_points = df_points[df_points['description'] == 'target']
         corner_points = df_points[df_points['description'] == 'corner']
+        click_points = df_points[df_points['description'] == 'click']
 
-        ax.scatter(clickable_points['x'], clickable_points['y'], color='dodgerblue', s=150, marker='o',
+        ax.scatter(target_points['x'], target_points['y'], color='dodgerblue', s=150, marker='o',
                    edgecolors='black', linewidths=2, label='Alvos', zorder=10)
         ax.scatter(corner_points['x'], corner_points['y'], color='purple', s=150, marker='X',
                    edgecolors='black', linewidths=2, label='Cantos', zorder=10)
+        ax.scatter(click_points['x'], click_points['y'], color='yellow', s=100, marker='X',
+                   edgecolors='black', linewidths=2, label='Cliques', zorder=15)
 
     ax.set_title(titulo_grafico); ax.set_xlabel('Coordenada X (pixels)'); ax.set_ylabel('Coordenada Y (pixels)')
     ax.invert_yaxis(); ax.legend(); ax.grid(True); plt.axis('equal'); plt.show()
