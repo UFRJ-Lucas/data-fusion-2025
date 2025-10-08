@@ -42,7 +42,34 @@ def analisar_qualidade_caminho(df, nome_trajetoria):
         sacudida_total = np.sum(mudancas_de_angulo)
         print(f"  - 'Sacudida' Total (Soma de Ângulos): {sacudida_total:.2f} radianos")
 
-def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico):
+def calcular_desempenho_tarefa(df_points):
+    # Separa os pontos por tipo
+    target_points = df_points[df_points['description'] == 'target'][1:] # Ignora o alvo de inicio
+    click_points_damping = df_points[df_points['description'] == 'click damping']
+    click_points_kalman = df_points[df_points['description'] == 'click kalman']
+
+    for click_points, metodo in [(click_points_damping, 'Freio Adaptativo'), (click_points_kalman, 'Kalman')]:
+        if target_points.empty or click_points.empty:
+            print(f"\nNão há pontos suficientes para calcular o desempenho da tarefa usando o método '{metodo}'.")
+            continue
+
+        print(f"\n--- Métricas de Desempenho da Tarefa para: {metodo} ---")
+        num_alvos = len(target_points)
+        num_cliques = len(click_points)
+        print(f"  - Número de Alvos (Após inicio): {num_alvos}")
+        print(f"  - Número de Cliques: {num_cliques}")
+
+        # Calcula a distância média dos cliques aos alvos
+        distancias = []
+        for _, target in target_points.iterrows():
+            alvo = np.array([target['x'], target['y']])
+            dists = np.linalg.norm(click_points[['x', 'y']].to_numpy() - alvo, axis=1)
+            distancias.append(np.min(dists))
+        distancia_media = np.mean(distancias) if distancias else float('nan')
+        print(f"  - Distância Média dos Cliques aos Alvos: {distancia_media:.2f} pixels")
+
+
+def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico, show_points=True):
     """Plota as trajetórias de múltiplos DataFrames em um único gráfico."""
     fig, ax = plt.subplots(figsize=(16, 10))
     # MODIFICAÇÃO: Dicionário de dados de plot atualizado para os dois filtros
@@ -62,17 +89,20 @@ def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico):
                     color=style.get('color', fallback_dict['color']), 
                     markersize=4, linestyle='-', label=label, linewidth=1.5)
             
-    if df_points is not None and not df_points.empty:
+    if show_points and df_points is not None and not df_points.empty:
         target_points = df_points[df_points['description'] == 'target']
         corner_points = df_points[df_points['description'] == 'corner']
-        click_points = df_points[df_points['description'] == 'click']
+        click_points_kalman = df_points[df_points['description'] == 'click kalman']
+        click_points_damping = df_points[df_points['description'] == 'click damping']
 
         ax.scatter(target_points['x'], target_points['y'], color='dodgerblue', s=150, marker='o',
                    edgecolors='black', linewidths=2, label='Alvos', zorder=10)
         ax.scatter(corner_points['x'], corner_points['y'], color='purple', s=150, marker='X',
                    edgecolors='black', linewidths=2, label='Cantos', zorder=10)
-        ax.scatter(click_points['x'], click_points['y'], color='yellow', s=100, marker='X',
-                   edgecolors='black', linewidths=2, label='Cliques', zorder=15)
+        ax.scatter(click_points_kalman['x'], click_points_kalman['y'], color='cyan', s=100, marker='X',
+                   edgecolors='black', linewidths=2, label='Cliques (Kalman)', zorder=15)
+        ax.scatter(click_points_damping['x'], click_points_damping['y'], color='orange', s=100, marker='X',
+                   edgecolors='black', linewidths=2, label='Cliques (Freio)', zorder=15)
 
     ax.set_title(titulo_grafico); ax.set_xlabel('Coordenada X (pixels)'); ax.set_ylabel('Coordenada Y (pixels)')
     ax.invert_yaxis(); ax.legend(); ax.grid(True); plt.axis('equal'); plt.show()
@@ -93,7 +123,7 @@ if __name__ == "__main__":
         "Estabilizado (Kalman)": OUTPUT_DIR + "df_final_kalman.pkl"
     }
 
-    titulo_analise = "Comparativo Final: Freio Adaptativo vs. Kalman"
+    titulo_analise = "Comparativo: Freio Adaptativo vs. Kalman"
 
     print("#"*60)
     print(f"# ANÁLISE DO CONJUNTO: {titulo_analise.upper()}")
@@ -120,6 +150,11 @@ if __name__ == "__main__":
     for label, df in dataframes.items():
         if label != 'Olhar':
             analisar_qualidade_caminho(df, label)
+    print("\n" + "="*50)
+
+    #  Exibe relatório de desempenho da tarefa
+    print("\n" + "="*50 + "\nRELATÓRIO DE MÉTRICAS DE DESEMPENHO DE TAREFA\n" + "="*50)
+    calcular_desempenho_tarefa(points_dataframe)
     print("\n" + "="*50)
     
     # Plota o gráfico

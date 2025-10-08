@@ -298,7 +298,10 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
                      # Clique com Kalman
                     eventos_cliques.append({'x': final_cursor_pos_kalman[0], 
                                             'y': final_cursor_pos_kalman[1], 
-                                            'description': 'click'})
+                                            'description': 'click kalman'})
+                    eventos_cliques.append({'x': final_cursor_pos_freio[0],
+                                            'y': final_cursor_pos_freio[1], 
+                                            'description': 'click damping'})
 
             # Desenho (mostrando apenas o resultado do Kalman para uma tela mais limpa)
             draw_click_points(screen, click_points, start_point, end_point, bold_font)
