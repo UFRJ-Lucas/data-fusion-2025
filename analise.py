@@ -75,11 +75,11 @@ def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico, show_points=T
     # MODIFICAÇÃO: Dicionário de dados de plot atualizado para os dois filtros
     fallback_dict = {'color': 'black', 'marker' : '.'}
     plot_data = {
-        'Mouse Real': {'color': 'green', 'marker' : 'o'}, 
-        'Mouse com Tremor': {'color': 'blue', 'marker' : 'o'}, 
-        'Olhar': {'color': 'red', 'marker' : 'o'}, 
-        'Estabilizado (Freio)': {'color': 'orange', 'marker' : 'D'}, 
-        'Estabilizado (Kalman)': {'color': 'cyan', 'marker' : 'D'}
+        'Ground Truth': {'color': 'green', 'marker' : 'o'}, 
+        'Tremor Simulated': {'color': 'blue', 'marker' : 'o'}, 
+        'Eye-gaze': {'color': 'red', 'marker' : 'o'}, 
+        'Adaptative Damping': {'color': 'orange', 'marker' : 'D'}, 
+        'Kalman': {'color': 'cyan', 'marker' : 'D'}
     }
     for label, df in dataframes_dict.items():
         if df is not None and not df.empty and 'x' in df.columns and 'y' in df.columns:
@@ -96,15 +96,15 @@ def plotar_trajetorias(dataframes_dict, df_points, titulo_grafico, show_points=T
         click_points_damping = df_points[df_points['description'] == 'click damping']
 
         ax.scatter(target_points['x'], target_points['y'], color='dodgerblue', s=150, marker='o',
-                   edgecolors='black', linewidths=2, label='Alvos', zorder=10)
+                   edgecolors='black', linewidths=2, label='Targets', zorder=10)
         ax.scatter(corner_points['x'], corner_points['y'], color='purple', s=150, marker='X',
-                   edgecolors='black', linewidths=2, label='Cantos', zorder=10)
+                   edgecolors='black', linewidths=2, label='Screen Corners', zorder=10)
         ax.scatter(click_points_kalman['x'], click_points_kalman['y'], color='cyan', s=100, marker='X',
-                   edgecolors='black', linewidths=2, label='Cliques (Kalman)', zorder=15)
+                   edgecolors='black', linewidths=2, label='Clicks (Kalman)', zorder=15)
         ax.scatter(click_points_damping['x'], click_points_damping['y'], color='orange', s=100, marker='X',
-                   edgecolors='black', linewidths=2, label='Cliques (Freio)', zorder=15)
+                   edgecolors='black', linewidths=2, label='Clicks (Adaptative Damping)', zorder=15)
 
-    ax.set_title(titulo_grafico); ax.set_xlabel('Coordenada X (pixels)'); ax.set_ylabel('Coordenada Y (pixels)')
+    ax.set_title(titulo_grafico); ax.set_xlabel('X coordinates (pixels)'); ax.set_ylabel('Y coordinates(pixels)')
     ax.invert_yaxis(); ax.legend(); ax.grid(True); plt.axis('equal'); plt.show()
 
 
@@ -116,14 +116,14 @@ if __name__ == "__main__":
     
     # MODIFICAÇÃO: Define o conjunto único de arquivos da execução unificada
     arquivos = {
-        "Mouse Real": OUTPUT_DIR + "df_mouse_real_unificado.pkl",
-        "Mouse com Tremor": OUTPUT_DIR + "df_mouse_com_tremor_unificado.pkl",
-        "Olhar": OUTPUT_DIR + "df_gaze_original_unificado.pkl",
-        "Estabilizado (Freio)": OUTPUT_DIR + "df_final_freio_adaptativo.pkl",
-        "Estabilizado (Kalman)": OUTPUT_DIR + "df_final_kalman.pkl"
+        "Ground Truth": OUTPUT_DIR + "df_mouse_real_unificado.pkl",
+        "Tremor Simulated": OUTPUT_DIR + "df_mouse_com_tremor_unificado.pkl",
+        "Eye-gaze": OUTPUT_DIR + "df_gaze_original_unificado.pkl",
+        "Adaptative Damping": OUTPUT_DIR + "df_final_freio_adaptativo.pkl",
+        "Kalman": OUTPUT_DIR + "df_final_kalman.pkl"
     }
 
-    titulo_analise = "Comparativo: Freio Adaptativo vs. Kalman"
+    titulo_analise = "Adaptative Damping vs. Kalman"
 
     print("#"*60)
     print(f"# ANÁLISE DO CONJUNTO: {titulo_analise.upper()}")
@@ -158,4 +158,4 @@ if __name__ == "__main__":
     print("\n" + "="*50)
     
     # Plota o gráfico
-    plotar_trajetorias(dataframes, points_dataframe, f"Análise de Trajetórias - {titulo_analise}")
+    plotar_trajetorias(dataframes, points_dataframe, f"Trajectories - {titulo_analise}")

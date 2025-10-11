@@ -22,7 +22,7 @@ ultimo_click = {}
 WHITE = (255,255,255)
 RED = (214,40,40)
 BLUE = (0,48,73)
-GREEN = (129,178,154)
+GREEN = (57,255,20)
 CYAN = (144,224,239)
 YELLOW = (252,191,73)
 
@@ -180,12 +180,12 @@ def gaze_main_loop(gestures, video_capture, screen, screen_width, screen_height,
     eventos_mouse_real = []
     eventos_mouse_com_tremor = []
     eventos_gaze = []
-    eventos_final_freio = [] # Resultado do Filtro "Freio Adaptativo"
-    eventos_final_kalman = [] # Resultado do Filtro de Kalman
+    eventos_final_freio = []    # Resultado do Filtro "Freio Adaptativo"
+    eventos_final_kalman = []   # Resultado do Filtro de Kalman
     eventos_cliques = []
 
     # --- PARÂMETROS DE AJUSTE PARA AMBOS OS FILTROS ---
-    p_chance_tremor = 1.5; 
+    p_chance_tremor = 1.9; 
     p_amplitude_tremor = 25
     p_mouse_speed_threshold = 15.0  # sensibilidade ao tremor para ativar filtro
     p_gaze_speed_threshold = 10.0   # diferenciar um olhar fixo de olhar em movimento    
